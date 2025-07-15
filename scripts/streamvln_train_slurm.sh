@@ -51,17 +51,18 @@ srun torchrun --nnodes=$SLURM_NNODES --nproc_per_node=8 \
     --run_name $MID_RUN_NAME \
     --output_dir checkpoints/$MID_RUN_NAME \
     --num_train_epochs 1 \
-    --per_device_train_batch_size 1 \
+    --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 1 \
+    --gradient_accumulation_steps 2 \
     --evaluation_strategy "no" \
     --save_strategy "epoch" \
     --save_total_limit 1 \
     --learning_rate 2e-5 \
     --mm_vision_tower_lr 5e-6 \
     --weight_decay 0. \
-    --warmup_ratio 0.03 \
-    --lr_scheduler_type "constant_with_warmup" \
+    --warmup_ratio 0.075 \
+    --lr_scheduler_type "cosine_with_min_lr" \
+    --lr_scheduler_kwargs '{"min_lr": 1.85e-05}' \
     --logging_steps 10 \
     --tf32 True \
     --model_max_length 32768 \
