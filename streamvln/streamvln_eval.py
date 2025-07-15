@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import re
 import tqdm
 import torch
@@ -20,7 +23,7 @@ from transformers.image_utils import to_numpy_array
 
 import habitat
 from habitat import logger, Env
-from streamvln.habitat_extensions import measures
+from habitat_extensions import measures
 from habitat.config.default import get_agent_config
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat.config.default_structured_configs import (
@@ -31,10 +34,10 @@ from habitat.config.default_structured_configs import (
 from habitat.utils.visualizations import maps
 from habitat.utils.visualizations.utils import images_to_video, observations_to_image
 
-from streamvln.model.stream_video_vln import StreamVLNForCausalLM
-from streamvln.utils.utils import dict_to_cuda
-from streamvln.utils.dist import *
-from streamvln.utils.utils import DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX, DEFAULT_MEMORY_TOKEN, MEMORY_TOKEN_INDEX, DEFAULT_VIDEO_TOKEN
+from model.stream_video_vln import StreamVLNForCausalLM
+from utils.utils import dict_to_cuda
+from utils.dist import *
+from utils.utils import DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX, DEFAULT_MEMORY_TOKEN, MEMORY_TOKEN_INDEX, DEFAULT_VIDEO_TOKEN
 
 class VLNEvaluator:
     def __init__(

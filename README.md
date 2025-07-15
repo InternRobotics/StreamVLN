@@ -21,13 +21,16 @@
 
 <div id="top" align="center">
 
-[![Project](https://img.shields.io/badge/Project-%23FF9E7D?style=flat&logoColor=%23A2D2FF)](https://streamvln.github.io/)
-[![arXiv](https://img.shields.io/badge/Arxiv-%23A2D2FF?style=flat&logoColor=%23FF9E7D)](http://arxiv.org/abs/2507.05240)
+
+[![arxiv](https://img.shields.io/badge/arXiv_2507.05240-red?logo=arxiv)](http://arxiv.org/abs/2507.05240)
+[![project](https://img.shields.io/badge/Project_Page-0065D3?logo=rocket&logoColor=white)](https://streamvln.github.io/)
+[![hf](https://img.shields.io/badge/Hugging_Face-FF9D00?logo=huggingface&logoColor=white)](https://huggingface.co/papers/2507.05240/)
+[![video-en](https://img.shields.io/badge/YouTube-D33846?logo=youtube)](https://www.youtube.com/watch?v=gG3mpefOBjc)
 
 </div>
 
 ## 🏠 About
-<strong><em>StreamVLN</em></strong> generates action outputs from continuous video input in an online, multi-turn dialogue manner. Built on LLaVA-Video as the foundational Video-LLM, we extend it for interleaved vision, language, and action modeling. For both effective context modeling of long sequence and efficient computation for real-time interaction, StreamVLN has: (1) a fast-streaming dialogue context with a sliding-window KV cache; and (2) a slow-updating memory via token pruning.
+<strong><em>StreamVLN</em></strong> generates action outputs from continuous video input in an online, multi-turn dialogue manner. Built on **LLaVA-Video** as the foundational Video-LLM, we extend it for interleaved vision, language, and action modeling. For both effective context modeling of long sequence and efficient computation for real-time interaction, StreamVLN has: (1) a **fast-streaming** dialogue context with a sliding-window KV cache; and (2) a **slow-updating** memory via token pruning.
 <div style="text-align: center;">
     <img src="assets/teaser.gif" width=100% >
 </div>
@@ -36,7 +39,7 @@
 We test under the following environment:
 * Python 3.9
 * Pytorch 2.1.2
-* CUDA Version 12.1 
+* CUDA Version 12.4 
 
 1. **Preparing  a conda env with `Python3.9` & Install habitat-sim and habitat-lab**
     ```bash
@@ -54,24 +57,109 @@ We test under the following environment:
     cd StreamVLN
     ```
 
-3. **Data Preparation**
+<!-- 3. **Data Preparation**
 
-    Please prepare the data following [HowTo use common supported datasets with Habitat-Sim.](https://github.com/facebookresearch/habitat-lab/blob/main/DATASETS.md)
+    - You need to download the **Matterport3D (MP3D)** scenes first. Please follow the instructions in the [official project page](https://niessner.github.io/Matterport/). Place them in the `data/scene_datasets` folder.
+
+    - For **evaluation**, please download the VLN-CE episodes: [r2r](https://dl.fbaipublicfiles.com/habitat/data/datasets/vln/mp3d/r2r/v1/vln_r2r_mp3d_v1.zip) and [rxr](https://drive.google.com/file/d/145xzLjxBaNTbVgBfQ8e9EsBAV8W-SM0t/view), and place them in the `data/datasets` folder.
+
+    - For **training**, please downlaod our observation-action pairs from [Hugging Face](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data), extract and place them in the `data/trajectory_data` folder. 
 
     The data folder should follow this structure:
+
     ```shell
     data/
     ├── datasets/
-    │   └── vln/
-    │       └── mp3d/               
-    │           ├── r2r/            
-    │           └── rxr/            
-    └── scene_datasets/
-        └── mp3d/                   
-            ├── 17DRP5sb8fy/        
-            ├── 1LXtFkjw3qL/
-            └── ...                 
-    ```
+    │   ├── r2r
+    │   │   ├── train/
+    │   │   ├── val_seen/
+    │   │   │   └── val_seen.json.gz
+    │   │   └── val_unseen/
+    │   │       └── val_unseen.json.gz
+    │   └── rxr
+    │       ├── train/
+    │       ├── val_seen/
+    │       │   ├── val_seen_guide.json.gz
+    │       │   └── ...
+    │       └── val_unseen/
+    │           ├── val_unseen_guide.json.gz
+    │           └── ...  
+    ├── scene_datasets/
+    │   └── mp3d/                   
+    │       ├── 17DRP5sb8fy/        
+    │       ├── 1LXtFkjw3qL/
+    │       └── ...                 
+    └── trajectory_data/
+        ├── EnvDrop/
+        │   ├── images/
+        │   └── annotations.json
+        ├── R2R/
+        │   ├── images/
+        │   └── annotations.json
+        └── RxR/
+            ├── images/
+            └── annotations.json
+    ``` -->
+
+## 📁 Data Preparation
+
+To get started, you need to prepare three types of data:
+
+1. **Matterport3D (MP3D) Scenes**  
+   Download the MP3D scenes from the [official project page](https://niessner.github.io/Matterport/), and place them under `data/scene_datasets/mp3d/`.
+
+2. **VLN-CE Episodes**  
+   Download the VLN-CE episodes:
+   - [r2r](https://drive.google.com/file/d/18DCrNcpxESnps1IbXVjXSbGLDzcSOqzD/view) (rename R2R_VLNCE_v1/ -> r2r/)
+   - [rxr](https://drive.google.com/file/d/145xzLjxBaNTbVgBfQ8e9EsBAV8W-SM0t/view) (rename RxR_VLNCE_v0/ -> rxr/)
+   - [envdrop](https://drive.google.com/file/d/1fo8F4NKgZDH-bPSdVU3cONAkt5EW-tyr/view) (rename R2R_VLNCE_v1-3_preprocessed/envdrop/ -> envdrop/)
+  
+   Extract them into the `data/datasets/` directory.
+
+3. **Collected Trajectory Data**  
+  We provide pre-collected observation-action trajectory data for training. These trajectories were collected using the **training episodes** from **R2R** and **RxR** under the Matterport3D environment. For the **EnvDrop** subset, please refer to [DATASET.md](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/README.md) for instructions on how to collect it yourself.
+  Download the observation-action trajectory data from [Hugging Face](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data), and extract it to `data/trajectory_data/`.
+
+Your final folder structure should look like this:
+
+```bash
+data/
+├── datasets/
+│   ├── r2r/
+│   │   ├── train/
+│   │   ├── val_seen/
+│   │   │   └── val_seen.json.gz
+│   │   └── val_unseen/
+│   │       └── val_unseen.json.gz
+│   ├── rxr/
+│   │   ├── train/
+│   │   ├── val_seen/
+│   │   │   ├── val_seen_guide.json.gz
+│   │   │   └── ...
+│   │   └── val_unseen/
+│   │       ├── val_unseen_guide.json.gz
+│   │       └── ...
+│   └── envdrop/
+│       ├── envdrop.json.gz
+│       └── ...
+│
+├── scene_datasets/
+│   └── mp3d/
+│       ├── 17DRP5sb8fy/
+│       ├── 1LXtFkjw3qL/
+│       └── ...
+└── trajectory_data/
+    ├── R2R/
+    │   ├── images/
+    │   └── annotations.json
+    ├── RxR/
+    │   ├── images/
+    │   └── annotations.json
+    └── EnvDrop/
+        ├── images/
+        └── annotations.json
+
+```
 
 ## 🏆 Model Zoo
 
@@ -87,22 +175,35 @@ We provide two model checkpoints for different use cases:
   1. **Remove redundant initial turn actions**: The initial left/right turns not mentioned in the instructions are removed for better instruction alignment.  
   2. **Trajectory safety**: Enhanced obstacle avoidance ensures more reliable navigation in real-world environments.
 
+## 🚀 Training
+
+To perform **multi-node multi-GPU training** with distributed setup, run:
+
+```bash
+sbatch scripts/streamvln_train_slurm.sh
+```
 
 ## 🤖 Evaluation
 
 To perform multi-GPU evaluation with key-value cache support, simply run:
 
 ```bash
-sh streamvln_eval_multi_gpu.sh
+sh scripts/streamvln_eval_multi_gpu.sh
 ```
 
 
 ## 📝 TODO List
 
-- ✅ Release the arXiv paper (July 2025)
+- ✅ Release the arXiv paper (Jul. 8, 2025)
 - ✅ Provide inference scripts and model checkpoints
-- ⏳ Release training code and configurations (Coming Soon)
-- ⏳ Release Training Data
+- ✅ Release training code and configurations 
+- ✅ Release training data
+- ⏳ Support co-training with LLaVA-Video-178K, ScanQA, MMC4
+- ⏳ Dagger data collection
+
+## 🙋‍♂️ Questions or Issues
+
+If you encounter any problems or have questions about StreamVLN, please feel free to [open an issue](https://github.com/OpenRobotLab/StreamVLN/issues). 
 
 
 ## 🔗 Citation
@@ -110,14 +211,11 @@ sh streamvln_eval_multi_gpu.sh
 If you find our work helpful, please consider starring this repo 🌟 and cite:
 
 ```bibtex
-@misc{wei2025streamvlnstreamingvisionandlanguagenavigation,
-      title={StreamVLN: Streaming Vision-and-Language Navigation via SlowFast Context Modeling}, 
-      author={Meng Wei and Chenyang Wan and Xiqian Yu and Tai Wang and Yuqiang Yang and Xiaohan Mao and Chenming Zhu and Wenzhe Cai and Hanqing Wang and Yilun Chen and Xihui Liu and Jiangmiao Pang},
-      year={2025},
-      eprint={2507.05240},
-      archivePrefix={arXiv},
-      primaryClass={cs.RO},
-      url={https://arxiv.org/abs/2507.05240}, 
+@article{wei2025streamvln,
+  title={StreamVLN: Streaming Vision-and-Language Navigation via SlowFast Context Modeling},
+  author={Wei, Meng and Wan, Chenyang and Yu, Xiqian and Wang, Tai and Yang, Yuqiang and Mao, Xiaohan and Zhu, Chenming and Cai, Wenzhe and Wang, Hanqing and Chen, Yilun and others},
+  journal={arXiv preprint arXiv:2507.05240},
+  year={2025}
 }
 ```
 

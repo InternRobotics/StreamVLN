@@ -9,7 +9,7 @@ from transformers.generation.utils import GenerateOutput
 from transformers import Qwen2ForCausalLM
 from llava.model.language_model.llava_qwen import LlavaQwenModel
 from llava.model.llava_arch import LlavaMetaForCausalLM
-from streamvln.utils.utils import IGNORE_INDEX, IMAGE_TOKEN_INDEX, MEMORY_TOKEN_INDEX
+from utils.utils import IGNORE_INDEX, IMAGE_TOKEN_INDEX, MEMORY_TOKEN_INDEX
 
 class StreamVLNModel(LlavaQwenModel):
     def __init__(

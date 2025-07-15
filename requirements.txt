@@ -23,6 +23,7 @@ cycler==0.12.1
 datasets==2.16.1
 decord==0.6.0
 deepspeed==0.14.4
+depth-camera-filtering @ git+https://github.com/naokiyokoyama/depth_camera_filtering@39d6e2f391c8b2198a67ad96f94bf6da0acd48a0
 dill==0.3.7
 docstring-parser==0.16
 einops==0.6.1
