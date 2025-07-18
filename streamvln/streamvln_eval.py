@@ -528,7 +528,7 @@ def eval():
                 config=config,
                 low_cpu_mem_usage=False,
                 )
-
+    model.model.num_history = args.num_history
     model.requires_grad_(False)
     model.to(local_rank)
     evaluate(model, tokenizer, args)
