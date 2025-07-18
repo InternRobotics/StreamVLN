@@ -35,6 +35,9 @@
     <img src="assets/teaser.gif" width=100% >
 </div>
 
+## 📢 News
+[2025-07-18] We’ve fixed a bug where num_history was not correctly passed to the model during evaluation, causing it to default to None. This had a significant impact on performance. Please make sure to pull the latest code for correct evaluation.
+
 ## 🛠 Getting Started
 We test under the following environment:
 * Python 3.9
