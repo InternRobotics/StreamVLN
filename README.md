@@ -110,8 +110,9 @@ We test under the following environment:
 
 To get started, you need to prepare three types of data:
 
-1. **Matterport3D (MP3D) Scenes**  
-   Download the MP3D scenes from the [official project page](https://niessner.github.io/Matterport/), and place them under `data/scene_datasets/mp3d/`.
+1. **Scene Datasets**  
+   - For **R2R**, **RxR** and **EnvDrop**: Download the MP3D scenes from the [official project page](https://niessner.github.io/Matterport/), and place them under `data/scene_datasets/mp3d/`.
+   - For **ScaleVLN**: Download the HM3D scenes from the [official github page](https://github.com/matterport/habitat-matterport-3dresearch), and place the `train` split under `data/scene_datasets/hm3d/`
 
 2. **VLN-CE Episodes**  
    Download the VLN-CE episodes:
@@ -123,7 +124,7 @@ To get started, you need to prepare three types of data:
    Extract them into the `data/datasets/` directory.
 
 3. **Collected Trajectory Data**  
-  We provide pre-collected observation-action trajectory data for training. These trajectories were collected using the **training episodes** from **R2R** and **RxR** under the Matterport3D environment. For the **EnvDrop** subset, please refer to [DATASET.md](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/README.md) for instructions on how to collect it yourself.
+  We provide pre-collected observation-action trajectory data for training. These trajectories were collected using the **training episodes** from **R2R** and **RxR** under the Matterport3D environment. For the **EnvDrop** and **ScaleVLN** subset, please refer to [here](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/README.md) for instructions on how to collect it yourself.
   Download the observation-action trajectory data from [Hugging Face](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data), and extract it to `data/trajectory_data/`.
 
 Your final folder structure should look like this:
@@ -151,6 +152,10 @@ data/
 │   └── scalevln/
 │       └── scalevln_subset_150k.json.gz
 ├── scene_datasets/
+│   └── hm3d/
+│       ├── 00000-kfPV7w3FaU5/
+│       ├── 00001-UVdNNRcVyV1/
+│       └── ...
 │   └── mp3d/
 │       ├── 17DRP5sb8fy/
 │       ├── 1LXtFkjw3qL/
