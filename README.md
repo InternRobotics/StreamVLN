@@ -119,7 +119,7 @@ To get started, you need to prepare three types of data:
    - [r2r](https://drive.google.com/file/d/18DCrNcpxESnps1IbXVjXSbGLDzcSOqzD/view) (Rename `R2R_VLNCE_v1/` -> `r2r/`)
    - [rxr](https://drive.google.com/file/d/145xzLjxBaNTbVgBfQ8e9EsBAV8W-SM0t/view) (Rename `RxR_VLNCE_v0/` -> `rxr/`)
    - [envdrop](https://drive.google.com/file/d/1fo8F4NKgZDH-bPSdVU3cONAkt5EW-tyr/view) (Rename `R2R_VLNCE_v1-3_preprocessed/envdrop/` -> `envdrop/`)
-   - [scalevln](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/ScaleVLN/scalevln_subset_150k.json.gz) (Please store it in `scalevln/scalevln_subset_150k.json.gz`)
+   - [scalevln](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/ScaleVLN/scalevln_subset_150k.json.gz) (This is a subset of the ScaleVLN dataset, converted to the VLN-CE format. For the original dataset, please refer to the [official repository](https://github.com/wz0919/ScaleVLN).)
   
    Extract them into the `data/datasets/` directory.
 
@@ -180,14 +180,14 @@ data/
 
 We provide two model checkpoints for different use cases:
 
-- **Benchmark Reproduction**  
+- **Benchmark Reproduction**
   Use this [checkpoint](https://huggingface.co/mengwei0427/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln) to reproduce results on the VLN-CE benchmark.
 
-- **Real-World Deployment**  
+- **Real-World Deployment**
   This [checkpoint](https://huggingface.co/mengwei0427/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln_real_world) is recommended for deployment on physical robots.
 
-  We made two modifications:  
-  1. **Remove redundant initial spinning actions**: The initial left/right turns not mentioned in the instructions are removed for better instruction alignment.  
+  We made two modifications:
+  1. **Remove redundant initial spinning actions**: The initial left/right turns not mentioned in the instructions are removed for better instruction alignment.
   2. **Trajectory safety**: Enhanced obstacle avoidance ensures more reliable navigation in real-world environments.
 
 ## 🚀 Training
