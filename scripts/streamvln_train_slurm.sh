@@ -12,7 +12,7 @@ VIDEO_FOLDER="data/trajectory_data/R2R","data/trajectory_data/RxR","data/traject
 
 LLM_VERSION="Qwen/Qwen2-7B-Instruct"
 LLM_VERSION_CLEAN="${LLM_VERSION//\//_}"
-VISION_MODEL_VERSION="google/siglip2-so400m-patch14-384"
+VISION_MODEL_VERSION="google/siglip-so400m-patch14-384"
 VISION_MODEL_VERSION_CLEAN="${VISION_MODEL_VERSION//\//_}"
 
 ############### Pretrain ################
