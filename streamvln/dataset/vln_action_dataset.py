@@ -757,7 +757,7 @@ class VLNActionDataset(Dataset):
             history_frames = []
             
         images = []
-        for image_file in sample_frames + history_frames:
+        for image_file in history_frames + sample_frames:
             image = Image.open(image_file).convert('RGB')
             if self.transforms is not None:
                 image = self.transforms(image)
