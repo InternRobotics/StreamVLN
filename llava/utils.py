@@ -3,6 +3,7 @@ import logging
 import logging.handlers
 import os
 import sys
+import io
 import numpy as np
 
 import requests
@@ -22,7 +23,15 @@ try:
 except ImportError:
     print("Please install pyav to use video processing functions.")
 
+try:
+    from petrel_client.client import Client
+    client = Client('~/petreloss.conf')
+except ImportError:
+    print("Please install petrel_client to Client.")
+
 def process_video_with_decord(video_file, data_args):
+    if "s3://" in video_file:
+        video_file = io.BytesIO(client.get(video_file))
     vr = VideoReader(video_file, ctx=cpu(0), num_threads=1)
     total_frame_num = len(vr)
     video_time = total_frame_num / vr.get_avg_fps()

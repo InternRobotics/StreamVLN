@@ -36,6 +36,8 @@
 </div>
 
 ## 📢 News
+[2025-08-21] We have released the code for the following components: 1) **Dagger Data Collection**; 2) **Stage-Two Co-training** with the LLaVA-Video-178K, ScanQA, and MMC4 datasets.
+
 [2025-07-30] We have released the ScaleVLN training data, including a subset of ~150k episodes converted from the discrete environment setting to the VLN-CE format. For usage details, see [here](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/README.md#envdrop--scalevln-dataset-note).
 
 [2025-07-18] We’ve fixed a bug where num_history was not correctly passed to the model during evaluation, causing it to default to None. This had a significant impact on performance. Please make sure to pull the latest code for correct evaluation.
@@ -127,6 +129,21 @@ To get started, you need to prepare three types of data:
   We provide pre-collected observation-action trajectory data for training. These trajectories were collected using the **training episodes** from **R2R** and **RxR** under the Matterport3D environment. For the **EnvDrop** and **ScaleVLN** subset, please refer to [here](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/README.md) for instructions on how to collect it yourself.
   Download the observation-action trajectory data from [Hugging Face](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data), and extract it to `data/trajectory_data/`.
 
+4. **Co-training Data Preparation**
+
+    Download the respective datasets from their official sources and place them in the `data/co-training_data/`.
+
+    - LLaVA-Video-178K: Available on Hugging Face at [lmms-lab/LLaVA-Video-178K](https://huggingface.co/datasets/lmms-lab/LLaVA-Video-178K).
+
+    - ScanNet: 
+
+      - The main dataset can be downloaded from the [official GitHub repository](https://github.com/ScanNet/ScanNet).
+
+      - Download the annotation files `scanqa_annotations.json` and `sqa3d_annotations.json` from [here](https://huggingface.co/datasets/chchnii/StreamVLN-ScanQA-SQA3D-Data). These files are subsets of the [LLaVA-3D-DATA](https://huggingface.co/datasets/ChaimZhu/LLaVA-3D-Data).
+
+
+    - MMC4-core: Available via the [official GitHub repository](https://github.com/allenai/mmc4).
+
 Your final folder structure should look like this:
 
 ```bash
@@ -160,19 +177,59 @@ data/
 │       ├── 17DRP5sb8fy/
 │       ├── 1LXtFkjw3qL/
 │       └── ...
-└── trajectory_data/
-    ├── R2R/
-    │   ├── images/
-    │   └── annotations.json
-    ├── RxR/
-    │   ├── images/
-    │   └── annotations.json
-    ├── EnvDrop/
-    │   ├── images/
-    │   └── annotations.json
-    └── ScaleVLN/
-        ├── images/
-        └── annotations.json
+├── trajectory_data/
+│   ├── R2R/
+│   │   ├── images/
+│   │   └── annotations.json
+│   ├── RxR/
+│   │   ├── images/
+│   │   └── annotations.json
+│   ├── EnvDrop/
+│   │   ├── images/
+│   │   └── annotations.json
+│   └── ScaleVLN/
+│       ├── images/
+│       └── annotations.json
+├── dagger_data/
+│   ├── R2R/
+│   │   ├── images/
+│   │   └── annotations.json
+│   ├── RxR/
+│   │   ├── images/
+│   │   └── annotations.json
+│   └── EnvDrop/
+│       ├── images/
+│       └── annotations.json
+└── co-training_data/
+    ├── ScanNet/
+    │   ├── posed_images/
+    │   │   ├── scene0000_00/
+    │   │   ├── scene0000_01/
+    │   │   └── ...
+    │   ├── scanqa_annotations.json
+    │   └── sqa3d_annotations.json
+    ├── LLaVA-Video-178K/
+    │   ├── 0_30_s_academic_v0_1/
+    │   │   ├── academic_source/
+    │   │   │   ├── Charades/
+    │   │   │   ├── NextQA/
+    │   │   │   └── ...
+    │   │   └── 0_30_s_academic_oe_v0_1_qa_processed.json
+    │   ├── 30_60_s_academic_v0_1/
+    │   │   ├── academic_source/
+    │   │   │   ├── Charades/
+    │   │   │   ├── NextQA/
+    │   │   │   └── ...
+    │   │   └── 30_60_s_academic_oe_v0_1_qa_processed.json
+    │   └── 0_30_s_youtube_v0_1/
+    │       ├── liwei_youtube_videos/
+    │       └── 0_30_s_youtube_oe_v0_1_qa_processed.json
+    └── MMC4-core/
+            ├── images/
+            ├── docs_shard_10000_v3.jsonl
+            ├── docs_shard_10001_v3.jsonl
+            └── ...
+
 
 ```
 
@@ -192,11 +249,26 @@ We provide two model checkpoints for different use cases:
 
 ## 🚀 Training
 
-To perform **multi-node multi-GPU training** with distributed setup, run:
+1. **Stage-one Training**
 
-```bash
-sbatch scripts/streamvln_train_slurm.sh
-```
+    To perform **multi-node multi-GPU training** with distributed setup, run:
+
+    ```bash
+    sbatch scripts/streamvln_train_slurm.sh
+    ```
+2. **Dagger Collection**
+
+    To perform multi-GPU collection, simply run:
+
+    ```bash
+    sh scripts/streamvln_dagger_collect.sh
+    ```
+2. **Stage-two Training**
+
+    To perform **multi-node multi-GPU training** with distributed setup, run:
+    ```bash
+    sbatch scripts/streamvln_stage_two_train_slurm.sh
+    ```
 
 ## 🤖 Evaluation
 
@@ -213,8 +285,8 @@ sh scripts/streamvln_eval_multi_gpu.sh
 - ✅ Provide inference scripts and model checkpoints
 - ✅ Release training code and configurations 
 - ✅ Release training data
-- ⏳ Support co-training with LLaVA-Video-178K, ScanQA, MMC4
-- ⏳ Dagger data collection
+- ✅ Support co-training with LLaVA-Video-178K, ScanQA, MMC4
+- ✅ Dagger data collection
 
 ## 🙋‍♂️ Questions or Issues
 

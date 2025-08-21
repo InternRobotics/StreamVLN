@@ -15,6 +15,7 @@
 #    limitations under the License.
 import sys
 import os
+import io
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import ast
 from hmac import trans_36
@@ -53,6 +54,7 @@ from llava.utils import rank0_print, process_video_with_pyav, process_video_with
 
 from streamvln.model.stream_video_vln import StreamVLNForCausalLM
 from streamvln.dataset.vln_action_dataset import collate_fn, VLNActionDataset
+from streamvln.dataset.mmc4_dataset import LazyMMC4Dataset
 
 from streamvln.utils.utils import ANSWER_LIST, DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_MEMORY_TOKEN, MEMORY_TOKEN_INDEX, DEFAULT_VIDEO_TOKEN
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -63,6 +65,12 @@ local_rank = None
 IS_TOKENIZER_GREATER_THAN_0_14 = version.parse(tokenizers.__version__) >= version.parse("0.14")
 
 from streamvln.args import ModelArguments, DataArguments, TrainingArguments
+
+try:
+    from petrel_client.client import Client
+    client = Client('~/petreloss.conf')
+except ImportError:
+    print("Please install petrel_client to Client.")
 
 def maybe_zero_3(param, ignore_status=False, name=None):
     from deepspeed import zero
@@ -923,10 +931,11 @@ class CombineDataset(Dataset):
         raise ValueError(f"Index {i} out of bound")
 
 class LazySupervisedDataset(Dataset):
-    def __init__(self, data_path: str, tokenizer: transformers.PreTrainedTokenizer, data_args: DataArguments):
+    def __init__(self, data_path: str, datasets: str, tokenizer: transformers.PreTrainedTokenizer, data_args: DataArguments, task_id:int):
         super(LazySupervisedDataset, self).__init__()
         self.tokenizer = tokenizer
         self.list_data_dict = []
+        self.task_id = task_id
 
         # Handle multiple JSON files specified in the data_path
         if "{" in data_path and "}" in data_path:
@@ -945,7 +954,7 @@ class LazySupervisedDataset(Dataset):
         elif data_path.endswith(".yaml"):
             with open(data_path, "r") as file:
                 yaml_data = yaml.safe_load(file)
-                datasets = yaml_data.get("datasets")
+                datasets = yaml_data.get(datasets)
                 # file should be in the format of:
                 # datasets:
                 #   - json_path: xxxx1.json
@@ -958,18 +967,37 @@ class LazySupervisedDataset(Dataset):
                 for dataset in datasets:
                     json_path = dataset.get("json_path")
                     sampling_strategy = dataset.get("sampling_strategy", "all")
+                    sampling_subset = dataset.get("sampling_subset", "all")
                     sampling_number = None
 
-                    rank0_print(f"Loading {json_path} with {sampling_strategy} sampling strategy")
+                    rank0_print(f"Loading {json_path} with {sampling_strategy} sampling strategy and {sampling_subset} sampling subset")
 
                     if json_path.endswith(".jsonl"):
                         cur_data_dict = []
-                        with open(json_path, "r") as json_file:
-                            for line in json_file:
-                                cur_data_dict.append(json.loads(line.strip()))
+                        if "s3://" in json_path:
+                            try:
+                                content = client.get(json_path)  
+                                lines = content.decode('utf-8').splitlines()
+                                for line in lines:
+                                    cur_data_dict.append(json.loads(line.strip()))
+                            except Exception as e:
+                                rank0_print(f"Failed to load {json_path}: {e}")
+                                cur_data_dict = {}
+                        else:
+                            with open(json_path, "r") as json_file:
+                                for line in json_file:
+                                    cur_data_dict.append(json.loads(line.strip()))
                     elif json_path.endswith(".json"):
-                        with open(json_path, "r") as json_file:
-                            cur_data_dict = json.load(json_file)
+                        if "s3://" in json_path:
+                            try:
+                                file_content = client.get(json_path)  
+                                cur_data_dict = json.loads(file_content)  
+                            except Exception as e:
+                                rank0_print(f"Failed to load {json_path}: {e}")
+                                cur_data_dict = {}
+                        else:
+                            with open(json_path, "r") as json_file:
+                                cur_data_dict = json.load(json_file)
                     else:
                         raise ValueError(f"Unsupported file type: {json_path}")
 
@@ -988,6 +1016,12 @@ class LazySupervisedDataset(Dataset):
                     elif sampling_strategy == "random" and sampling_number is not None:
                         random.shuffle(cur_data_dict)
                         cur_data_dict = cur_data_dict[:sampling_number]
+                    if sampling_subset != "all":
+                        keywords = [keyword.strip().lower() for keyword in sampling_subset.split(",")]
+                        cur_data_dict = [
+                            item for item in cur_data_dict
+                            if any(keyword in item["video"].lower() for keyword in keywords)
+                        ]
 
                     rank0_print(f"Loaded {len(cur_data_dict)} samples from {json_path}")
                     self.list_data_dict.extend(cur_data_dict)
@@ -1007,6 +1041,10 @@ class LazySupervisedDataset(Dataset):
     def __len__(self):
         return len(self.list_data_dict)
 
+    @property
+    def task(self):
+        return self.task_id
+    
     @property
     def lengths(self):
         length_list = []
@@ -1103,7 +1141,7 @@ class LazySupervisedDataset(Dataset):
 
     def _get_item(self, i) -> Dict[str, torch.Tensor]:
         sources = self.list_data_dict[i]
-        if isinstance(i, int):
+        if isinstance(i, (int, np.int64, np.int32)):
             sources = [sources]
         assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
 
@@ -1123,10 +1161,11 @@ class LazySupervisedDataset(Dataset):
         elif "video" in sources[0]:
             video_file = self.list_data_dict[i]["video"]
             video_folder = self.data_args.video_folder
-            video_file = os.path.join(video_folder, video_file)
+            data_source = self.list_data_dict[i].get("data_source", "")
+            video_file = os.path.join(video_folder, data_source, video_file)
             suffix = video_file.split(".")[-1]
-            if not os.path.exists(video_file):
-                print("File {} not exist!".format(video_file))
+            # if not os.path.exists(video_file):
+            #     print("File {} not exist!".format(video_file))
 
             try:
                 if "shareVideoGPTV" in video_file:
@@ -1160,14 +1199,60 @@ class LazySupervisedDataset(Dataset):
                                 video.append(frame)
                         except IOError:
                             print(f"Failed to read frame at path: {frame_path}")
+                elif "scannet" in video_file:
+                    ##scanqa 所有posed_images下先每10帧sample，然后再均匀sample
+                    frame_files = [os.path.join(video_file, f) for f in os.listdir(video_file) if (f.endswith('.jpg') and os.path.isfile(os.path.join(video_file, f)))]
+                    frame_files.sort()
+
+                    if self.data_args.force_sample:
+                        num_frames_to_sample = self.data_args.frames_upbound
+                    else:
+                        num_frames_to_sample = 10
+
+                    avg_fps = 2
+                    total_frames = len(frame_files)
+
+                    subset_index = list(range(0, total_frames, 10))
+                    if len(subset_index) > num_frames_to_sample:
+                        sample_factor = len(subset_index) // num_frames_to_sample
+                        start_point = 0
+                        sampled_indices = [(start_point + i*sample_factor) % len(subset_index) for i in range(num_frames_to_sample)]
+                        sampled_indices = [subset_index[i] for i in sampled_indices]
+                    elif len(subset_index) < num_frames_to_sample:
+                        repeat_times = (num_frames_to_sample // len(subset_index)) + 1
+                        # Extend the list by repeating it and then slice to get exactly self.num_frames elements
+                        sampled_indices = (subset_index * repeat_times)[:num_frames_to_sample]
+                    else:
+                        sampled_indices = subset_index
+                    
+                    frame_time = [i/2 for i in sampled_indices]
+                    frame_time = ",".join([f"{i:.2f}s" for i in frame_time])
+
+                    video_time = total_frames / avg_fps
+
+                    # Read and store the sampled frames
+                    video = []
+                    for idx in sampled_indices:
+                        frame_path = frame_files[idx]
+                        try:
+                            with Image.open(frame_path) as img:
+                                frame = img.convert("RGB")
+                                video.append(frame)
+                        except IOError:
+                            print(f"Failed to read frame at path: {frame_path}")
+                    for conv in sources[0]['conversations']:
+                        if conv['from'] == 'human':
+                            conv['value'] = conv['value'].replace(DEFAULT_VIDEO_TOKEN, DEFAULT_IMAGE_TOKEN * num_frames_to_sample)
+                    add_time_instruction = False
                 else:
                     video, video_time, frame_time, num_frames_to_sample = process_video_with_decord(video_file, self.data_args)
+                    add_time_instruction = self.data_args.add_time_instruction
 
                 processor = self.data_args.image_processor
                 image = processor.preprocess(video, return_tensors="pt")["pixel_values"]
-                if self.data_args.add_time_instruction:
+                if add_time_instruction:
                     time_instruciton = f"The video lasts for {video_time:.2f} seconds, and {num_frames_to_sample} frames are uniformly sampled from it. These frames are located at {frame_time}.Please answer the following questions related to this video."
-                    sources[0]["conversations"][0]["value"] = f'{DEFAULT_IMAGE_TOKEN}\n{time_instruciton}\n{sources[0]["conversations"][0]["value"].replace(DEFAULT_IMAGE_TOKEN, "")}'
+                    sources[0]["conversations"][0]["value"] = f'{DEFAULT_IMAGE_TOKEN*num_frames_to_sample}\n{time_instruciton}\n{sources[0]["conversations"][0]["value"].replace(DEFAULT_IMAGE_TOKEN, "")}'
                 image = [(image, video[0].size, "video")]
                 sources = preprocess_multimodal(copy.deepcopy([e["conversations"] for e in sources]), self.data_args)
                 # print(sources)
@@ -1186,7 +1271,7 @@ class LazySupervisedDataset(Dataset):
         else:
             prompt = None
 
-        if isinstance(i, int):
+        if isinstance(i, (int, np.int64, np.int32)):
             data_dict = dict(input_ids=data_dict["input_ids"][0], labels=data_dict["labels"][0])
 
         # image exist in the data
@@ -1206,7 +1291,10 @@ class LazySupervisedDataset(Dataset):
 
         data_dict["id"] = self.list_data_dict[i].get("id", i)
 
-        return data_dict
+        return data_dict["input_ids"], \
+              data_dict["labels"], \
+              data_dict["image"][0][0], \
+              None, self.task
 
 
 @dataclass
@@ -1348,16 +1436,28 @@ class DataCollatorForSupervisedDataset(object):
 
 def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,vision_tower, data_args) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
-    # train_dataset = LazySupervisedDataset(tokenizer=tokenizer, data_path=data_args.data_path, data_args=data_args)
+    
     nav_dataset = VLNActionDataset(tokenizer=tokenizer, data_args=data_args, task_id=0)
     dataset =[nav_dataset]
+    
+    if data_args.multi_task_training:
+        QA_data_agrs = copy.deepcopy(data_args)
+        QA_data_agrs.video_folder = data_args.qa_video_folder
+        QA_dataset = LazySupervisedDataset(tokenizer=tokenizer, data_path=QA_data_agrs.data_path, datasets="QA_datasets", data_args=QA_data_agrs, task_id=1)
         
+        SCANQA_data_agrs = copy.deepcopy(data_args)
+        SCANQA_data_agrs.video_folder = data_args.scanqa_video_folder
+        SCANQA_dataset = LazySupervisedDataset(tokenizer=tokenizer, data_path=SCANQA_data_agrs.data_path, datasets="SCANQA_datasets", data_args=SCANQA_data_agrs, task_id=2)
+        
+        MMC4_dataset = LazyMMC4Dataset(tokenizer=tokenizer, data_path=data_args.data_path, datasets="MMC4_datasets", data_args=data_args, task_id=3)
+        
+        dataset = dataset + [QA_dataset] + [SCANQA_dataset] + [MMC4_dataset]
     if len(dataset) > 1:
         train_dataset = CombineDataset(dataset)
     else:
         train_dataset = dataset[0]
         
-    print('len train_dataset ', len(train_dataset))
+    rank0_print('len train_dataset ', len(train_dataset))
 
     data_collator = partial(collate_fn, tokenizer=tokenizer)
     return dict(train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator)

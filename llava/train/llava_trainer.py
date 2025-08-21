@@ -125,6 +125,33 @@ def get_modality_length_grouped_indices(lengths, batch_size, world_size, generat
 
     return [i for megabatch in megabatches for i in megabatch]
 
+def get_task_length_grouped_indices(lengths, batch_size, world_size, generator=None):
+
+    # We need to use torch for the random part as a distributed sampler will set the random seed for torch.
+    assert all(l != 0 for l in lengths), "Should not have zero length."
+    from collections import defaultdict
+    task_indices, task_lengths = defaultdict(list), defaultdict(list)
+    for i, (task_id, l) in enumerate(lengths):
+        task_indices[task_id].append(i)
+        task_lengths[task_id].append(l)
+    
+    task_ids = list(task_indices.keys())
+    task_shuffle = {}
+    for task_id in task_ids:
+        task_shuffle[task_id] = [task_indices[task_id][i] for i in get_length_grouped_indices(task_lengths[task_id], batch_size, world_size, generator=None)]
+
+    megabatch_size = world_size * batch_size
+    task_megabatches = {}
+    for task_id in task_ids:
+        task_megabatches[task_id] = [task_shuffle[task_id][i: i + megabatch_size] for i in range(0, len(task_shuffle[task_id]), megabatch_size)]
+
+    megabatches = []
+    for task_id in task_ids:
+        megabatches.extend(task_megabatches[task_id][:-1])
+    megabatch_indices = torch.randperm(len(megabatches), generator=generator)
+    megabatches = [megabatches[i] for i in megabatch_indices]
+
+    return [i for megabatch in megabatches for i in megabatch]
 
 def get_length_grouped_indices(lengths, batch_size, world_size, generator=None, merge=True):
     """
@@ -208,6 +235,7 @@ class LengthGroupedSampler(Sampler):
         variable_length: bool = False,
         group_by_modality: bool = False,
         group_by_modality_auto: bool = False,
+        group_by_task: bool = False,
     ):
         if lengths is None:
             raise ValueError("Lengths must be provided.")
@@ -219,6 +247,7 @@ class LengthGroupedSampler(Sampler):
         self.variable_length = variable_length
         self.group_by_modality = group_by_modality
         self.group_by_modality_auto = group_by_modality_auto
+        self.group_by_task = group_by_task
 
     def __len__(self):
         return len(self.lengths)
@@ -228,7 +257,9 @@ class LengthGroupedSampler(Sampler):
             assert not self.group_by_modality, "Variable length grouping is not supported with modality grouping."
             indices = get_variable_length_grouped_indices(self.lengths, self.batch_size, self.world_size, generator=self.generator)
         else:
-            if self.group_by_modality:
+            if self.group_by_task:
+                indices = get_task_length_grouped_indices(self.lengths, self.batch_size, self.world_size, generator=self.generator)
+            elif self.group_by_modality:
                 indices = get_modality_length_grouped_indices(self.lengths, self.batch_size, self.world_size, generator=self.generator)
             elif self.group_by_modality_auto:
                 indices = get_modality_length_grouped_indices_auto(self.lengths, self.batch_size, self.world_size, generator=self.generator)
@@ -312,6 +343,14 @@ class LLaVATrainer(Trainer):
                 world_size=self.args.world_size * self.args.gradient_accumulation_steps,  # TODO: seems that this may work?
                 lengths=lengths,
                 variable_length=True,
+            )
+        elif self.args.group_by_task:
+            lengths = self.train_dataset.task_lengths
+            return LengthGroupedSampler(
+                self.args.train_batch_size,
+                world_size=self.args.world_size * self.args.gradient_accumulation_steps, 
+                lengths=lengths,
+                group_by_task=True,
             )
         else:
             return super()._get_train_sampler()

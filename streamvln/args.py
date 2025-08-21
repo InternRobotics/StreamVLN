@@ -81,6 +81,10 @@ class DataArguments:
     frames_upbound: Optional[int] = field(default=0)
     add_time_instruction: Optional[bool] = field(default=False)
     force_sample: Optional[bool] = field(default=False)
+    mmc4_video_folder: Optional[str] = field(default=None)
+    qa_video_folder: Optional[str] = field(default=None)
+    scanqa_video_folder: Optional[str] = field(default=None)
+    multi_task_training: bool = field(default=False)
 
     num_future_steps: Optional[int] = field(default=1)
     num_frames: Optional[int] = field(default=32)

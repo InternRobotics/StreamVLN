@@ -1,0 +1,13 @@
+QA_datasets:
+  - json_path: data/co-training_data/LLaVA-Video-178K/0_30_s_academic_v0_1/0_30_s_academic_oe_v0_1_qa_processed.json
+    sampling_subset: nextqa,activitynet,ego4d,charades
+  - json_path: data/co-training_data/LLaVA-Video-178K/30_60_s_academic_v0_1/30_60_s_academic_oe_v0_1_qa_processed.json
+    sampling_subset: nextqa,activitynet,ego4d,charades
+  - json_path: data/co-training_data/LLaVA-Video-178K/0_30_s_youtube_v0_1/0_30_s_youtube_oe_v0_1_qa_processed.json
+    sampling_strategy: random:140000
+SCANQA_datasets:
+  - json_path: data/co-training_data/ScanNet/scanqa_annotations.json
+  - json_path: data/co-training_data/ScanNet/sqa3d_annotations.json
+MMC4_datasets:
+  - json_path: data/co-training_data/MMC4-core/
+    sampling_strategy: end:1400
