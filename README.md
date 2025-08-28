@@ -36,6 +36,8 @@
 </div>
 
 ## 📢 News
+[2025-08-28] We have released the code and [guide](realworld/realworld.md) for real-world deployment on a unitree Go2 robot.
+
 [2025-08-21] We have released the code for the following components: 1) **Dagger Data Collection**; 2) **Stage-Two Co-training** with the LLaVA-Video-178K, ScanQA, and MMC4 datasets.
 
 [2025-07-30] We have released the ScaleVLN training data, including a subset of ~150k episodes converted from the discrete environment setting to the VLN-CE format. For usage details, see [here](https://huggingface.co/datasets/cywan/StreamVLN-Trajectory-Data/blob/main/README.md#envdrop--scalevln-dataset-note).
@@ -278,6 +280,9 @@ To perform multi-GPU evaluation with key-value cache support, simply run:
 sh scripts/streamvln_eval_multi_gpu.sh
 ```
 
+## Deployment
+
+Please refer to [realworld/realworld.md](realworld/realworld.md) for real-world deployment on a unitree Go2 robot.
 
 ## 📝 TODO List
 
