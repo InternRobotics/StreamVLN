@@ -7,6 +7,7 @@ import transformers
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.dist import *
+import torch.distributed as dist
 # from utils.dagger import DaggerCollector
 from streamvln_eval import VLNEvaluator
 from model.stream_video_vln import StreamVLNForCausalLM
@@ -353,6 +354,7 @@ class StreamVLNDAggerCollector:
                 accumulated_error = 0
                 action = agent.get_next_action(ref_path[next_waypoint_id])
                 action_source = "expert"
+                action_seq = []
             
             # action check
             if action == 0 and not force_episode_end:
@@ -510,6 +512,7 @@ class StreamVLNDAggerCollector:
                         f.write(json.dumps(result) + "\n")
                     
                     if not episode_dagger["metrics"]["save"]:
+                        pbar.update()
                         continue 
 
                     for k,v in episode_dagger.items():
@@ -573,32 +576,34 @@ class StreamVLNDAggerCollector:
                 json_data = json.dumps(merged_anno, indent=4)
                 json_file.write(json_data) 
             
-            if get_rank() == 0:
-                tgt_anno_path = os.path.join(self.output_path, f"annotations.json")
-                merged_anno = []
-                sub_tgt_anno_list = [
-                    os.path.join(self.output_path, f)
-                    for f in os.listdir(self.output_path)
-                    if f.startswith('annotations_') and f.endswith('.json')
-                ]
-                for sub_tgt_anno_path in sub_tgt_anno_list:
-                    if os.path.exists(sub_tgt_anno_path):
-                        merged_anno.extend(json.load(open(sub_tgt_anno_path)))
-                merged_anno = sorted(merged_anno, key=lambda x: x['id'])
-                with open(tgt_anno_path, "w") as json_file:
-                    anno_videos = set()
-                    for item in merged_anno:
-                        anno_videos.add(item["video"])
-                    temp_anno = []
-                    for item in merged_anno:
-                        if item["video"] in anno_videos:
-                            temp_anno.append(item)
-                            anno_videos.remove(item["video"])
-                    merged_anno = temp_anno
-                    json_data = json.dumps(merged_anno, indent=4)
-                    json_file.write(json_data)
             # -------
             print(f"save scene_id {scene_id} with total episodes {num_collect_episodes} time cost {time.time() - start}")
+        
+        dist.barrier()
+        if get_rank() == 0:
+            tgt_anno_path = os.path.join(self.output_path, f"annotations.json")
+            merged_anno = []
+            sub_tgt_anno_list = [
+                os.path.join(self.output_path, f)
+                for f in os.listdir(self.output_path)
+                if f.startswith('annotations_') and f.endswith('.json')
+            ]
+            for sub_tgt_anno_path in sub_tgt_anno_list:
+                if os.path.exists(sub_tgt_anno_path):
+                    merged_anno.extend(json.load(open(sub_tgt_anno_path)))
+            merged_anno = sorted(merged_anno, key=lambda x: x['id'])
+            with open(tgt_anno_path, "w") as json_file:
+                anno_videos = set()
+                for item in merged_anno:
+                    anno_videos.add(item["video"])
+                temp_anno = []
+                for item in merged_anno:
+                    if item["video"] in anno_videos:
+                        temp_anno.append(item)
+                        anno_videos.remove(item["video"])
+                merged_anno = temp_anno
+                json_data = json.dumps(merged_anno, indent=4)
+                json_file.write(json_data)
 
 
 if __name__ == "__main__":
