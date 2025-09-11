@@ -12,9 +12,10 @@ from sensor_msgs.msg import Image
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from cv_bridge import CvBridge
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 
 # unitree related
 from unitree_go.msg import SportModeState
@@ -23,6 +24,7 @@ from unitree_api.msg import RequestHeader
 
 # user-specific
 from pid_controller import *
+from utils import ReadWriteLock
 # global variable
 policy_init = True
 pid = PID_controller(Kp_trans=3.0, Kd_trans=0.5, Kp_yaw=3.0, Kd_yaw=0.5, max_v=1.0, max_w=1.2)
@@ -31,16 +33,18 @@ manager = None
 rgb_rw_lock = ReadWriteLock()
 depth_rw_lock = ReadWriteLock()
 odom_rw_lock = ReadWriteLock()
-    
-def eval_vln(image, depth, camera_pose, instruction, url='http://localhost:5801/eval_vln'):
-    global policy_init
+instruction_rw_lock = ReadWriteLock()
+
+def eval_vln(image, depth, camera_pose, instruction, policy_init, url='http://localhost:5801/eval_vln'):
     image = PIL_Image.fromarray(image)
     # image = image.resize((384, 384))
     image_bytes = io.BytesIO()
     image.save(image_bytes, format='jpeg')
     image_bytes.seek(0)
     
-    data = {"reset":policy_init}
+    data = {"reset":policy_init,
+            "instruction": instruction,}
+    
     json_data = json.dumps(data)
     policy_init = False
     
@@ -50,7 +54,11 @@ def eval_vln(image, depth, camera_pose, instruction, url='http://localhost:5801/
     print(f"total time(delay + policy): {time.time() - start}")
     print(response.text)
     
-    action = json.loads(response.text)['action']
+    if(response.text):
+        action = json.loads(response.text)['action']
+    else:
+        action = [0]
+
     return action
 
 def control_thread():
@@ -82,11 +90,17 @@ def planning_thread():
         odom_rw_lock.acquire_read()
         request_cnt = manager.request_cnt
         odom_rw_lock.release_read()
+
+        instruction_rw_lock.acquire_read()
+        instruction = manager.instruction
+        policy_init = manager.policy_init
+        instruction_rw_lock.release_read()
+
         if rgb_image is None:
             time.sleep(0.1)
             continue
 
-        actions = eval_vln(rgb_image, None, None, None)
+        actions = eval_vln(rgb_image, None, None, instruction=instruction, policy_init=policy_init)
         print(f"111")
         odom_rw_lock.acquire_write()
         manager.should_plan = False
@@ -100,11 +114,16 @@ class Go2VlnManager(Node):
     def __init__(self):
         super().__init__('go2_manager')
 
+        # QoS: keep last message and deliver it to late subscribers
+        qos_profile = QoSProfile(depth=1)
+        qos_profile.durability = QoSDurabilityPolicy.TRANSIENT_LOCAL
+
         # subsucriber
         self.rgb_sub = self.create_subscription(Image, "/camera/camera/color/image_raw", self.rgb_callback, 1)
         # self.depth_sub = self.create_subscription(Image, "/camera/camera/aligned_depth_to_color/image_raw",
         #                                           self.depth_callback, 1)
         self.odom_sub = self.create_subscription(SportModeState, "/sportmodestate", self.odom_callback, 10)
+        self.instruction_sub = self.create_subscription(String, "/instruction", self.instruction_callback, qos_profile)
 
         # publisher
         self.control_pub = self.create_publisher(Request, '/api/sport/request', 5)
@@ -116,12 +135,16 @@ class Go2VlnManager(Node):
         self.homo_goal = None
         self.homo_odom = None
         self.vel = None
+
+        self.instruction = None
+        self.policy_init = None
         
         self.request_cnt = 0
         self.odom_cnt = 0
         
         self.should_plan = False
         self.last_plan_time = 0.0
+
     def rgb_callback(self, msg):
         rgb_rw_lock.acquire_write()
         raw_image = self.cv_bridge.imgmsg_to_cv2(msg, 'bgr8')[:, :, :]
@@ -159,6 +182,14 @@ class Go2VlnManager(Node):
             # fisrst odom
             self.homo_goal = self.homo_odom.copy()
         odom_rw_lock.release_write()
+
+    def instruction_callback(self, msg):
+        instruction_rw_lock.acquire_write()
+        self.instruction = msg.data
+        self.policy_init = True
+        self.should_plan = True
+        print("Received instruction: ", self.instruction)
+        instruction_rw_lock.release_write()
 
     def trigger_replan(self):
         self.should_plan = True

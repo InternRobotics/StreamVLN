@@ -8,6 +8,16 @@ We provide the server code of StreamVLN and the client code of unitree Go2 to de
 
 2. Install [realsense-ros](https://github.com/IntelRealSense/realsense-ros) package.
 
+3. Install flask
+```bash
+pip install flask
+```
+
+4. Install FlashAttention2
+```bash
+pip install flash-attn --no-build-isolation
+```
+
 ## Run the Real-world Experiment
 
 1. Run the realsense-ros on robot
@@ -27,6 +37,11 @@ We provide the server code of StreamVLN and the client code of unitree Go2 to de
    Change the server ip in `go2_vln_client.py` to the remote server ip. And check odometry/image topics are subscribed successfully. Then just run,
    ```bash
    python3 go2_vln_client.py
+   ```
+
+4. Publish your custom natural language instruction to robot using "ros2 topic pub" command, such as "Turn around and find the door to the room, walk forward and stop in front of it."
+    ```bash
+   ros2 topic pub /instruction std_msgs/msg/String "data: 'Turn around and find the door to the room, walk forward and stop in front of it.'" -r 20 --times 3
    ```
 
 If everything goes well, the robot should start moving and the server should print the action sequence.
