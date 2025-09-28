@@ -36,6 +36,8 @@
 </div>
 
 ## 📢 News
+[2025-09-28] We have updated the [checkpoint](https://huggingface.co/mengwei0427/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln_v1_3) which is trained on R2R_VLNCE_v1-3, achieving better results: R2R (NE:4.90, OS:63.6, SR:56.4, SPL:50.2) and RxR (NE:5.65, SR:54.4, SPL:45.4, nDTW:63.7). **Please switch your training and testing data to R2R_VLNCE_v1-3 if you used R2R_VLNCE_v1 before.**
+
 [2025-08-28] We have released the code and [guide](realworld/realworld.md) for real-world deployment on a unitree Go2 robot.
 
 [2025-08-21] We have released the code for the following components: 1) **Dagger Data Collection**; 2) **Stage-Two Co-training** with the LLaVA-Video-178K, ScanQA, and MMC4 datasets.
@@ -240,7 +242,7 @@ data/
 We provide two model checkpoints for different use cases:
 
 - **Benchmark Reproduction**
-  Use this [checkpoint](https://huggingface.co/mengwei0427/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln) to reproduce results on the VLN-CE benchmark.
+  Use this [checkpoint](https://huggingface.co/mengwei0427/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln_v1_3) to reproduce results on the VLN-CE benchmark.
 
 - **Real-World Deployment**
   This [checkpoint](https://huggingface.co/mengwei0427/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln_real_world) is recommended for deployment on physical robots.
