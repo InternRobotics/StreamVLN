@@ -94,10 +94,10 @@ def eval_vln():
     for i in range(4):
         t1 = time.time()
         depth = np.zeros((image.shape[0], image.shape[1], 1))
-        return_action, generate_time, return_llm_output = evaluator.eval_action(0,
+        return_action, generate_time, return_llm_output = evaluator.step(0,
                                         image,
-                                        depth,
-                                        camera_pose,
+                                        #depth,
+                                        #camera_pose,
                                         instruction,
                                         run_model=(evaluator.step_id % 4 == 0))
         llm_output = return_llm_output if return_llm_output is not None else llm_output
